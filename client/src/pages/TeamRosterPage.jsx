@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   useGetEmployeesQuery,
 } from "../services/api/employeeApi";
+
+
+
 import {
   useGenerateDailyRosterMutation,
   useGenerateWeeklyRosterMutation,
@@ -11,7 +12,10 @@ import {
   useGetGeneratedWeeklyRosterQuery,
   useGetGeneratedMonthlyRosterQuery,
 } from "../services/api/rosterApi";
+
 import ScheduleGrid from "../components/roster/ScheduleGrid";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useGetTeamsQuery } from "../services/api/teamApi";
 
 export default function TeamRosterPage() {
@@ -223,217 +227,218 @@ export default function TeamRosterPage() {
   }
 };
 
-  return (
-    <div className="min-h-full bg-gray-50 p-4 dark:bg-gray-950 md:p-6">
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+ return (
+  <div className="min-h-full bg-slate-50 p-4 md:p-6">
+    {/* Header */}
+    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <button
+          onClick={() => navigate("/rosters")}
+          className="mb-2 text-sm text-slate-500 transition hover:text-slate-900"
+        >
+          ← Back to Rosters
+        </button>
+
+        <h1 className="text-2xl font-bold text-slate-900">
+          Team-wise Roster
+        </h1>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Generate daily, weekly or monthly rosters for one team at a time.
+        </p>
+      </div>
+    </div>
+
+    {/* Generator Card */}
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+        {/* Team */}
         <div>
-          <button
-            onClick={() => navigate("/rosters")}
-            className="mb-2 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-white"
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            Team
+          </label>
+
+          <select
+            value={teamId}
+            onChange={(e) => setTeamId(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
           >
-            ← Back to Rosters
+            <option value="">Select team</option>
+
+            {teams.map((team) => (
+              <option key={team._id} value={team._id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Period */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            Period
+          </label>
+
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        {/* Date */}
+        {period === "daily" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Date
+            </label>
+
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
+            />
+          </div>
+        )}
+
+        {/* Week */}
+        {period === "weekly" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Week starts
+            </label>
+
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
+            />
+          </div>
+        )}
+
+        {/* Month */}
+        {period === "monthly" && (
+          <>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Month
+              </label>
+
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {new Date(2000, i).toLocaleString("en", {
+                      month: "long",
+                    })}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Year
+              </label>
+
+              <input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-1 focus:ring-slate-300"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Generate */}
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading || !teamId}
+            className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Generate Roster"}
           </button>
+        </div>
+      </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Team-wise Roster
-          </h1>
+      {/* Team employee preview */}
+      {teamId && (
+        <div className="mt-5 border-t border-slate-200 pt-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-900">
+                {selectedTeam?.name || "Selected Team"}
+              </h2>
 
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Generate daily, weekly or monthly rosters for one team at a time.
+              <p className="text-sm text-slate-500">
+                {employeesLoading
+                  ? "Loading employees..."
+                  : `${employees.length} active employee${
+                      employees.length === 1 ? "" : "s"
+                    }`}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {employees.map((employee) => (
+                <span
+                  key={employee._id}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                >
+                  {employee.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Generated roster */}
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-5">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold text-slate-900">
+            Roster Preview
+          </h2>
+
+          <p className="text-sm text-slate-500">
+            {selectedTeam?.name || "Select a team"} ·{" "}
+            {period.charAt(0).toUpperCase() + period.slice(1)}
           </p>
         </div>
       </div>
 
-      {/* Generator Card */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* Team */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Team
-            </label>
-
-            <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-            >
-              <option value="">Select team</option>
-
-              {teams.map((team) => (
-                <option key={team._id} value={team._id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Period */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Period
-            </label>
-
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </div>
-
-          {/* Date */}
-          {period === "daily" && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Date
-              </label>
-
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-              />
-            </div>
-          )}
-
-          {/* Week */}
-          {period === "weekly" && (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Week starts
-              </label>
-
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-              />
-            </div>
-          )}
-
-          {/* Month */}
-          {period === "monthly" && (
-            <>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Month
-                </label>
-
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {new Date(2000, i).toLocaleString("en", {
-                        month: "long",
-                      })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Year
-                </label>
-
-                <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Generate */}
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={loading || !teamId}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Generating..." : "Generate Roster"}
-            </button>
-          </div>
+      {!teamId ? (
+        <div className="p-10 text-center text-sm text-slate-500">
+          Select a team to view its roster.
         </div>
-
-        {/* Team employee preview */}
-        {teamId && (
-          <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-800">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-semibold text-gray-900 dark:text-white">
-                  {selectedTeam?.name || "Selected Team"}
-                </h2>
-
-                <p className="text-sm text-gray-500">
-                  {employeesLoading
-                    ? "Loading employees..."
-                    : `${employees.length} active employee${
-                        employees.length === 1 ? "" : "s"
-                      }`}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {employees.map((employee) => (
-                  <span
-                    key={employee._id}
-                    className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  >
-                    {employee.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Generated roster */}
-      <div className="mt-6 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="border-b border-gray-200 p-5 dark:border-gray-800">
-          <div className="flex flex-col gap-1">
-            <h2 className="font-semibold text-gray-900 dark:text-white">
-              Roster Preview
-            </h2>
-
-            <p className="text-sm text-gray-500">
-              {selectedTeam?.name || "Select a team"} ·{" "}
-              {period.charAt(0).toUpperCase() + period.slice(1)}
-            </p>
-          </div>
+      ) : !entries.length ? (
+        <div className="p-10 text-center text-sm text-slate-500">
+          No generated roster found for this selection.
         </div>
-
-        {!teamId ? (
-          <div className="p-10 text-center text-sm text-gray-500">
-            Select a team to view its roster.
-          </div>
-        ) : !entries.length ? (
-          <div className="p-10 text-center text-sm text-gray-500">
-            No generated roster found for this selection.
-          </div>
-        ) : (
-         <ScheduleGrid
-  employees={employees}
-  dates={scheduleDates}
-  entries={entries}
-  onEntryClick={handleEntryClick}
-/>
-        )}
-      </div>
+      ) : (
+        <ScheduleGrid
+          employees={employees}
+          dates={scheduleDates}
+          entries={entries}
+          onEntryClick={handleEntryClick}
+        />
+      )}
     </div>
-  );
+  </div>
+);
 }

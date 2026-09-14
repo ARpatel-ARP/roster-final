@@ -8,8 +8,8 @@
 .dark-theme {
     color-scheme: dark;
 
-    /* Base grayscale */
-    --color-white: #000000;
+    /* Base slatescale */
+    --color-white: #181717;
     --color-black: #ffffff;
 
     /* Slate */
@@ -24,7 +24,7 @@
     --color-slate-800: #f0f0f0;
     --color-slate-900: #f5f5f5;
 
-    /* Blue → grayscale */
+    /* Blue → slatescale */
     --color-blue-50: #0a0a0a;
     --color-blue-100: #151515;
     --color-blue-200: #202020;
@@ -36,7 +36,7 @@
     --color-blue-800: #fafafa;
     --color-blue-900: #ffffff;
 
-    /* Red → grayscale */
+    /* Red → slatescale */
     --color-red-50: #111111;
     --color-red-100: #1c1c1c;
     --color-red-200: #303030;
@@ -45,7 +45,7 @@
     --color-red-600: #eeeeee;
     --color-red-700: #ffffff;
 
-    /* Green → grayscale */
+    /* Green → slatescale */
     --color-green-50: #111111;
     --color-green-100: #1c1c1c;
     --color-green-200: #303030;
@@ -53,7 +53,7 @@
     --color-green-600: #dddddd;
     --color-green-700: #ffffff;
 
-    /* Yellow → grayscale */
+    /* Yellow → slatescale */
     --color-yellow-50: #111111;
     --color-yellow-100: #1c1c1c;
     --color-yellow-200: #303030;
@@ -61,7 +61,7 @@
     --color-yellow-600: #dddddd;
     --color-yellow-700: #ffffff;
 
-    /* Indigo → grayscale */
+    /* Indigo → slatescale */
     --color-indigo-50: #111111;
     --color-indigo-100: #1c1c1c;
     --color-indigo-500: #aaaaaa;
@@ -132,4 +132,97 @@
 
 .dark-theme ::-webkit-scrollbar-thumb:hover {
     background: #666666;
+}
+
+/* =========================================================
+   TEAM ROSTER PAGE - DARK THEME
+   Keeps the clean light theme unchanged.
+   ========================================================= */
+
+.dark-theme .team-roster-page {
+    background-color: #111111 !important;
+    color: #f5f5f5 !important;
+}
+
+/* Main cards */
+.dark-theme .team-roster-page .bg-white {
+    background-color: #1a1a1a !important;
+}
+
+/* Page background */
+.dark-theme .team-roster-page .bg-slate-50 {
+    background-color: #111111 !important;
+}
+
+/* Employee pills */
+.dark-theme .team-roster-page .bg-slate-100 {
+    background-color: #2a2a2a !important;
+}
+
+/* Borders */
+.dark-theme .team-roster-page .border-slate-200 {
+    border-color: #333333 !important;
+}
+
+.dark-theme .team-roster-page .border-slate-300 {
+    border-color: #555555 !important;
+}
+
+/* Main text */
+.dark-theme .team-roster-page .text-slate-900 {
+    color: #f5f5f5 !important;
+}
+
+/* Medium text */
+.dark-theme .team-roster-page .text-slate-700 {
+    color: #d0d0d0 !important;
+}
+
+/* Secondary text */
+.dark-theme .team-roster-page .text-slate-500 {
+    color: #999999 !important;
+}
+
+/* Inputs + selects
+   Overrides the global .dark-theme input/select rule */
+.dark-theme .team-roster-page input,
+.dark-theme .team-roster-page select,
+.dark-theme .team-roster-page textarea {
+    background-color: #111111 !important;
+    color: #f5f5f5 !important;
+    border-color: #555555 !important;
+}
+
+/* Select options */
+.dark-theme .team-roster-page option {
+    background-color: #111111 !important;
+    color: #f5f5f5 !important;
+}
+
+/* Input placeholder */
+.dark-theme .team-roster-page input::placeholder,
+.dark-theme .team-roster-page textarea::placeholder {
+    color: #888888 !important;
+}
+
+/* Generate button
+   Your global theme already intentionally turns blue buttons
+   into light buttons, so keep that behavior. */
+.dark-theme .team-roster-page button.bg-blue-600 {
+    background-color: #eeeeee !important;
+    color: #000000 !important;
+}
+
+.dark-theme .team-roster-page button.bg-blue-600:hover {
+    background-color: #ffffff !important;
+}
+
+/* Employee chips */
+.dark-theme .team-roster-page .bg-slate-100 {
+    color: #dddddd !important;
+}
+
+/* Roster preview empty state */
+.dark-theme .team-roster-page .text-center {
+    color: #999999;
 }
