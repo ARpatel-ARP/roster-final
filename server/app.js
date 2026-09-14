@@ -20,7 +20,7 @@ app.use(cookieParser()); // required to read req.cookies.token
 // Allow credentials (cookies) from your Vite frontend
 app.use(
   cors({
-    origin: 'roster-final.vercel.app', // your Vite dev server URL
+    origin: 'https://roster-final.vercel.app', // your Vite dev server URL
     credentials: true,
   })
 );
