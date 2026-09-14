@@ -8,7 +8,7 @@ import {
   escapeRegex,
     validateTeamCreatePayload,
     validateTeamUpdatePayload,
-} from "../utils/validators.js"
+} from "../utils/Validators.js"
 
 /**
  * POST /api/teams
