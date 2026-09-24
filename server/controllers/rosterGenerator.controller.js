@@ -1548,7 +1548,7 @@ export const getGeneratedDailyRoster = async (req, res) => {
 // ============================================================
 
 const buildRosterWorkbook = async ({ month, year, helpDeskOnly = false }) => {
-    const teams = await Team.find({ status: "active" }).sort({ name: 1 }).lean();
+    const teams = await Team.find({ status: "Active" }).sort({ name: 1 }).lean();
     const selectedTeams = teams.filter((team) =>
         helpDeskOnly
             ? team.name.trim().toLowerCase() === "help desk"
