@@ -1570,14 +1570,13 @@ const buildRosterWorkbook = async ({
         .lean();
 
     const filteredEntries = entries.filter((entry) => {
-        const teamName = entry.team?.name
-            ?.trim()
-            .toLowerCase();
+    const teamName =
+        entry.team?.name?.trim().toLowerCase() || "";
 
-        return helpDeskOnly
-            ? teamName === "help desk"
-            : teamName !== "help desk";
-    });
+    return helpDeskOnly
+        ? teamName.includes("help")
+        : !teamName.includes("help");
+});
 
     // ============================================================
     // WORKBOOK
