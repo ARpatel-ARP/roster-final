@@ -1548,24 +1548,23 @@ export const getGeneratedDailyRoster = async (req, res) => {
 // ============================================================
 
 const buildRosterWorkbook = async ({ month, year, helpDeskOnly = false }) => {
-    const teams = await Team.find({ status: "Active" }).sort({ name: 1 }).lean();
-    const selectedTeams = teams.filter((team) =>
-        helpDeskOnly
-            ? team.name.trim().toLowerCase() === "help desk"
-            : team.name.trim().toLowerCase() !== "help desk"
-    );
-    const teamIds = selectedTeams.map((team) => team._id);
-
     const entries = await RosterEntry.find({
-        team: { $in: teamIds },
-        month,
-        year,
-    })
-        .populate("employee", "employeeId name designation")
-        .populate("team", "name")
-        .populate("shift", "name startTime endTime")
-        .sort({ "team.name": 1, employee: 1, date: 1 })
-        .lean();
+    month,
+    year,
+})
+    .populate("employee", "employeeId name designation team status")
+    .populate("team", "name status")
+    .populate("shift", "name startTime endTime")
+    .sort({ date: 1 })
+    .lean();
+
+const filteredEntries = entries.filter((entry) => {
+    const teamName = entry.team?.name?.trim().toLowerCase();
+
+    return helpDeskOnly
+        ? teamName === "help desk"
+        : teamName !== "help desk";
+});
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "Roster Management System";
@@ -1594,49 +1593,81 @@ const buildRosterWorkbook = async ({ month, year, helpDeskOnly = false }) => {
     sheet.columns = columns;
 
     const entryMap = new Map();
-    for (const entry of entries) {
-        const key = `${entry.team?._id?.toString()}|${entry.employee?._id?.toString()}|${getDateKey(entry.date)}`;
-        entryMap.set(key, entry);
+const employeeMap = new Map();
+
+for (const entry of filteredEntries) {
+    if (!entry.employee || !entry.team) continue;
+
+    const employeeMongoId = entry.employee._id.toString();
+    const teamMongoId = entry.team._id.toString();
+
+    const entryKey =
+        `${teamMongoId}|${employeeMongoId}|${getDateKey(entry.date)}`;
+
+    entryMap.set(entryKey, entry);
+
+    const employeeKey =
+        `${teamMongoId}|${employeeMongoId}`;
+
+    if (!employeeMap.has(employeeKey)) {
+        employeeMap.set(employeeKey, {
+            teamId: teamMongoId,
+            employeeId: employeeMongoId,
+            teamName: entry.team.name || "",
+            employeeCode: entry.employee.employeeId || "",
+            employeeName: entry.employee.name || "",
+        });
+    }
+}
+
+const employees = Array.from(employeeMap.values()).sort((a, b) => {
+    const teamCompare = a.teamName.localeCompare(b.teamName);
+
+    if (teamCompare !== 0) {
+        return teamCompare;
     }
 
-    for (const team of selectedTeams) {
-        const employees = await Employee.find({
-            team: team._id,
-            status: "active",
-        }).select("employeeId name").sort({ name: 1 }).lean();
+    return a.employeeName.localeCompare(b.employeeName);
+});
 
-        for (const employee of employees) {
-            const row = {
-                team: team.name,
-                employeeId: employee.employeeId || "",
-                employee: employee.name,
-            };
+for (const employee of employees) {
+    const row = {
+        team: employee.teamName,
+        employeeId: employee.employeeCode,
+        employee: employee.employeeName,
+    };
 
-            for (const d of dates) {
-                const key = `${team._id.toString()}|${employee._id.toString()}|${getDateKey(d)}`;
-                const entry = entryMap.get(key);
-                row[getDateKey(d)] = entry
-                    ? (entry.isLeave
-                        ? "Leave"
-                        : entry.isHoliday && entry.isWeeklyOff
-                            ? "Holiday"
-                            : entry.isWeeklyOff
-                                ? "WOF"
-                                : entry.isHoliday
-                                    ? "Holiday"
-                                    : ({
-                                        Morning: "M",
-                                        General: "G",
-                                        Evening: "E",
-                                        Night: "N",
-                                        Off: "O",
-                                    }[entry.shift?.name] || entry.shift?.name || ""))
-                    : "";
-            }
+    for (const d of dates) {
+        const key =
+            `${employee.teamId}|${employee.employeeId}|${getDateKey(d)}`;
 
-            sheet.addRow(row);
-        }
+        const entry = entryMap.get(key);
+
+        row[getDateKey(d)] = entry
+            ? (
+                entry.isLeave
+                    ? "Leave"
+                    : entry.isHoliday && entry.isWeeklyOff
+                        ? "Holiday"
+                        : entry.isWeeklyOff
+                            ? "WOF"
+                            : entry.isHoliday
+                                ? "Holiday"
+                                : ({
+                                    Morning: "M",
+                                    General: "G",
+                                    Evening: "E",
+                                    Night: "N",
+                                    Off: "O",
+                                }[entry.shift?.name] ||
+                                entry.shift?.name ||
+                                "")
+            )
+            : "";
     }
+
+    sheet.addRow(row);
+}
 
     sheet.views = [{ state: "frozen", xSplit: 3, ySplit: 1 }];
     const excelColumn = (number) => {
