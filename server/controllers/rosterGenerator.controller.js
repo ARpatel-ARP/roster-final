@@ -1547,145 +1547,772 @@ export const getGeneratedDailyRoster = async (req, res) => {
 // Help Desk = only Help Desk
 // ============================================================
 
-const buildRosterWorkbook = async ({ month, year, helpDeskOnly = false }) => {
-    const entries = await RosterEntry.find({
+const buildRosterWorkbook = async ({
     month,
     year,
-})
-    .populate("employee", "employeeId name designation team status")
-    .populate("team", "name status")
-    .populate("shift", "name startTime endTime")
-    .sort({ date: 1 })
-    .lean();
+    helpDeskOnly = false,
+}) => {
+    // ============================================================
+    // GET ROSTER ENTRIES
+    // ============================================================
 
-const filteredEntries = entries.filter((entry) => {
-    const teamName = entry.team?.name?.trim().toLowerCase();
+    const entries = await RosterEntry.find({
+        month,
+        year,
+    })
+        .populate(
+            "employee",
+            "employeeId name designation team status"
+        )
+        .populate("team", "name status")
+        .populate("shift", "name startTime endTime")
+        .sort({ date: 1 })
+        .lean();
 
-    return helpDeskOnly
-        ? teamName === "help desk"
-        : teamName !== "help desk";
-});
+    const filteredEntries = entries.filter((entry) => {
+        const teamName = entry.team?.name
+            ?.trim()
+            .toLowerCase();
+
+        return helpDeskOnly
+            ? teamName === "help desk"
+            : teamName !== "help desk";
+    });
+
+    // ============================================================
+    // WORKBOOK
+    // ============================================================
 
     const workbook = new ExcelJS.Workbook();
+
     workbook.creator = "Roster Management System";
     workbook.created = new Date();
 
-    const sheet = workbook.addWorksheet(helpDeskOnly ? "Help Desk Roster" : "CCC Admin Roster");
+    const sheet = workbook.addWorksheet(
+        helpDeskOnly
+            ? "Help Desk Roster"
+            : "CCC Admin Roster"
+    );
+
+    // ============================================================
+    // DATES
+    // ============================================================
 
     const dates = [];
-    const cursor = new Date(Date.UTC(year, month - 1, 1));
-    const last = new Date(Date.UTC(year, month, 0));
+
+    const cursor = new Date(
+        Date.UTC(year, month - 1, 1)
+    );
+
+    const last = new Date(
+        Date.UTC(year, month, 0)
+    );
+
     while (cursor <= last) {
         dates.push(new Date(cursor));
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
+
+        cursor.setUTCDate(
+            cursor.getUTCDate() + 1
+        );
     }
 
-    const columns = [
-        { header: "Team", key: "team", width: 24 },
-        { header: "Employee ID", key: "employeeId", width: 18 },
-        { header: "Employee", key: "employee", width: 28 },
-        ...dates.map((d) => ({
-            header: `${d.getUTCDate()} ${d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}`,
-            key: getDateKey(d),
-            width: 13,
-        })),
-    ];
-    sheet.columns = columns;
+    // ============================================================
+    // MAP ROSTER ENTRIES
+    // ============================================================
 
     const entryMap = new Map();
-const employeeMap = new Map();
+    const employeeMap = new Map();
 
-for (const entry of filteredEntries) {
-    if (!entry.employee || !entry.team) continue;
+    for (const entry of filteredEntries) {
+        if (!entry.employee || !entry.team) {
+            continue;
+        }
 
-    const employeeMongoId = entry.employee._id.toString();
-    const teamMongoId = entry.team._id.toString();
+        const employeeMongoId =
+            entry.employee._id.toString();
 
-    const entryKey =
-        `${teamMongoId}|${employeeMongoId}|${getDateKey(entry.date)}`;
+        const teamMongoId =
+            entry.team._id.toString();
 
-    entryMap.set(entryKey, entry);
+        const dateKey =
+            getDateKey(entry.date);
 
-    const employeeKey =
-        `${teamMongoId}|${employeeMongoId}`;
+        // --------------------------------------------------------
+        // Entry lookup
+        // --------------------------------------------------------
 
-    if (!employeeMap.has(employeeKey)) {
-        employeeMap.set(employeeKey, {
-            teamId: teamMongoId,
-            employeeId: employeeMongoId,
-            teamName: entry.team.name || "",
-            employeeCode: entry.employee.employeeId || "",
-            employeeName: entry.employee.name || "",
+        const entryKey =
+            `${teamMongoId}|${employeeMongoId}|${dateKey}`;
+
+        entryMap.set(entryKey, entry);
+
+        // --------------------------------------------------------
+        // Employee lookup
+        // --------------------------------------------------------
+
+        const employeeKey =
+            `${teamMongoId}|${employeeMongoId}`;
+
+        if (!employeeMap.has(employeeKey)) {
+            employeeMap.set(employeeKey, {
+                teamId: teamMongoId,
+                employeeId: employeeMongoId,
+                teamName:
+                    entry.team.name || "",
+                employeeCode:
+                    entry.employee.employeeId || "",
+                employeeName:
+                    entry.employee.name || "",
+                designation:
+                    entry.employee.designation || "",
+            });
+        }
+    }
+
+    const employees =
+        Array.from(employeeMap.values());
+
+    // ============================================================
+    // VALUE TO PUT INTO EXCEL
+    // ============================================================
+
+    const getRosterValue = (entry) => {
+        if (!entry) {
+            return "";
+        }
+
+        // Leave has highest priority
+        if (entry.isLeave) {
+            return "Leave";
+        }
+
+        // Holiday
+        if (entry.isHoliday) {
+            return "Holiday";
+        }
+
+        // Weekly Off
+        if (entry.isWeeklyOff) {
+            return "WOF";
+        }
+
+        const shiftName =
+            entry.shift?.name
+                ?.trim()
+                .toLowerCase();
+
+        // --------------------------------------------------------
+        // Normal shifts
+        // --------------------------------------------------------
+
+        if (shiftName === "morning") {
+            return "M";
+        }
+
+        if (shiftName === "general") {
+            return "G";
+        }
+
+        if (shiftName === "evening") {
+            return "E";
+        }
+
+        if (shiftName === "night") {
+            return "Night";
+        }
+
+        // Some existing data may already contain Nightoff
+        if (
+            shiftName === "nightoff" ||
+            shiftName === "night off"
+        ) {
+            return "Night off";
+        }
+
+        if (shiftName === "off") {
+            return "WOF";
+        }
+
+        // Preserve any other existing shift name
+        return entry.shift?.name || "";
+    };
+
+    // ============================================================
+    // COMMON STYLES
+    // ============================================================
+
+    const headerFill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: {
+            argb: "FFF2F2F2",
+        },
+    };
+
+    const headerFont = {
+        bold: true,
+        size: 11,
+    };
+
+    const centerAlignment = {
+        horizontal: "center",
+        vertical: "middle",
+    };
+
+    const thinBorder = {
+        top: {
+            style: "thin",
+        },
+        left: {
+            style: "thin",
+        },
+        bottom: {
+            style: "thin",
+        },
+        right: {
+            style: "thin",
+        },
+    };
+
+    // ============================================================
+    // HELP DESK EXCEL
+    // ============================================================
+
+    if (helpDeskOnly) {
+        // --------------------------------------------------------
+        // COLUMN WIDTHS
+        // --------------------------------------------------------
+
+        sheet.getColumn(1).width = 26;
+
+        for (let i = 2; i <= dates.length + 1; i++) {
+            sheet.getColumn(i).width = 12;
+        }
+
+        // --------------------------------------------------------
+        // ROW 1 - WEEKDAY
+        // --------------------------------------------------------
+
+        const weekdayRow = sheet.getRow(1);
+
+        weekdayRow.getCell(1).value =
+            "HELPDESK TEAM";
+
+        weekdayRow.getCell(1).font = {
+            bold: false,
+            size: 11,
+        };
+
+        weekdayRow.getCell(1).alignment = {
+            horizontal: "left",
+            vertical: "middle",
+        };
+
+        for (let i = 0; i < dates.length; i++) {
+            const cell =
+                weekdayRow.getCell(i + 2);
+
+            cell.value =
+                dates[i].toLocaleDateString(
+                    "en-US",
+                    {
+                        weekday: "long",
+                        timeZone: "UTC",
+                    }
+                );
+
+            cell.font = headerFont;
+            cell.alignment = centerAlignment;
+        }
+
+        weekdayRow.height = 26;
+
+        // --------------------------------------------------------
+        // ROW 2 - DATE
+        // --------------------------------------------------------
+
+        const dateRow = sheet.getRow(2);
+
+        dateRow.getCell(1).value =
+            "NAME/DATE";
+
+        dateRow.getCell(1).font = {
+            bold: false,
+            size: 11,
+        };
+
+        dateRow.getCell(1).alignment = {
+            horizontal: "left",
+            vertical: "middle",
+        };
+
+        for (let i = 0; i < dates.length; i++) {
+            const cell =
+                dateRow.getCell(i + 2);
+
+            cell.value = dates[i];
+
+            cell.numFmt = "dd-mmm";
+
+            cell.font = {
+                bold: true,
+                size: 10,
+            };
+
+            cell.alignment = centerAlignment;
+        }
+
+        // --------------------------------------------------------
+        // EMPLOYEES
+        // --------------------------------------------------------
+
+        employees.sort((a, b) =>
+            a.employeeName.localeCompare(
+                b.employeeName
+            )
+        );
+
+        let rowNumber = 3;
+
+        for (const employee of employees) {
+            const row =
+                sheet.getRow(rowNumber);
+
+            row.getCell(1).value =
+                employee.employeeName;
+
+            for (let i = 0; i < dates.length; i++) {
+                const dateKey =
+                    getDateKey(dates[i]);
+
+                const key =
+                    `${employee.teamId}|${employee.employeeId}|${dateKey}`;
+
+                const entry =
+                    entryMap.get(key);
+
+                row.getCell(i + 2).value =
+                    getRosterValue(entry);
+
+                row.getCell(i + 2).alignment =
+                    centerAlignment;
+            }
+
+            row.getCell(1).alignment = {
+                horizontal: "left",
+                vertical: "middle",
+            };
+
+            rowNumber++;
+        }
+
+        // --------------------------------------------------------
+        // BORDERS
+        // --------------------------------------------------------
+
+        for (
+            let r = 1;
+            r < rowNumber;
+            r++
+        ) {
+            for (
+                let c = 1;
+                c <= dates.length + 1;
+                c++
+            ) {
+                sheet.getCell(r, c).border =
+                    thinBorder;
+            }
+        }
+
+        // --------------------------------------------------------
+        // FREEZE
+        // --------------------------------------------------------
+
+        sheet.freezePane = "B3";
+
+        return workbook;
+    }
+
+    // ============================================================
+    // COMBINED CCC EXCEL
+    // ============================================================
+
+    // ------------------------------------------------------------
+    // COLUMN WIDTHS
+    // ------------------------------------------------------------
+
+    sheet.getColumn(1).width = 13;
+    sheet.getColumn(2).width = 18;
+    sheet.getColumn(3).width = 25;
+
+    for (
+        let i = 4;
+        i <= dates.length + 3;
+        i++
+    ) {
+        sheet.getColumn(i).width = 9;
+    }
+
+    // ============================================================
+    // ROW 1
+    // ============================================================
+
+    sheet.getCell("A1").value = "CCC";
+
+    sheet.mergeCells("A1:C1");
+
+    sheet.getCell("A1").font = {
+        bold: true,
+        size: 14,
+    };
+
+    sheet.getCell("A1").fill = headerFill;
+
+    sheet.getCell("A1").alignment = centerAlignment;
+
+    // Weekdays
+    for (let i = 0; i < dates.length; i++) {
+        const cell =
+            sheet.getCell(1, i + 4);
+
+        cell.value =
+            dates[i].toLocaleDateString(
+                "en-US",
+                {
+                    weekday: "long",
+                    timeZone: "UTC",
+                }
+            );
+
+        cell.font = headerFont;
+        cell.fill = headerFill;
+        cell.alignment = centerAlignment;
+    }
+
+    sheet.getRow(1).height = 53.25;
+
+    // ============================================================
+    // ROW 2
+    // ============================================================
+
+    sheet.getCell("A2").value = "Shift";
+    sheet.getCell("B2").value = "Timing";
+
+    sheet.getCell("A2").font = headerFont;
+    sheet.getCell("B2").font = headerFont;
+
+    sheet.getCell("A2").fill = headerFill;
+    sheet.getCell("B2").fill = headerFill;
+
+    sheet.getCell("A2").alignment = centerAlignment;
+    sheet.getCell("B2").alignment = centerAlignment;
+
+    // Blank C2
+    sheet.getCell("C2").value = "";
+
+    for (let i = 0; i < dates.length; i++) {
+        const cell =
+            sheet.getCell(2, i + 4);
+
+        cell.value = dates[i];
+
+        cell.numFmt = "dd-mmm";
+
+        cell.font = headerFont;
+        cell.fill = headerFill;
+        cell.alignment = centerAlignment;
+    }
+
+    // ============================================================
+    // SHIFT LEGEND
+    // ============================================================
+
+    const shiftRows = [
+        {
+            row: 3,
+            code: "M",
+            timing: "8:00AM - 4:00PM",
+        },
+        {
+            row: 4,
+            code: "G",
+            timing: "9:00AM - 5:00 PM",
+        },
+        {
+            row: 5,
+            code: "E",
+            timing: "12:00PM - 8:00 PM",
+        },
+    ];
+
+    for (const item of shiftRows) {
+        sheet.getCell(item.row, 1).value =
+            item.code;
+
+        sheet.getCell(item.row, 2).value =
+            item.timing;
+
+        sheet.getCell(item.row, 1).font =
+            headerFont;
+
+        sheet.getCell(item.row, 2).font =
+            {
+                bold: false,
+            };
+
+        sheet.getCell(item.row, 1).fill =
+            headerFill;
+
+        sheet.getCell(item.row, 2).fill =
+            headerFill;
+
+        sheet.getCell(item.row, 1).alignment =
+            centerAlignment;
+
+        sheet.getCell(item.row, 2).alignment =
+            centerAlignment;
+    }
+
+    // ============================================================
+    // EMPLOYEE GROUPING
+    // ============================================================
+
+    employees.sort((a, b) => {
+        const teamCompare =
+            a.teamName.localeCompare(
+                b.teamName
+            );
+
+        if (teamCompare !== 0) {
+            return teamCompare;
+        }
+
+        return a.employeeName.localeCompare(
+            b.employeeName
+        );
+    });
+
+    /*
+     * In the CCC template:
+     *
+     * Column A = main group
+     * Column B = sub-team
+     * Column C = employee
+     *
+     * All current CCC teams belong to the Admin
+     * group, so column A is "Admin".
+     */
+
+    const groupedTeams = new Map();
+
+    for (const employee of employees) {
+        const teamName =
+            employee.teamName || "Other";
+
+        if (!groupedTeams.has(teamName)) {
+            groupedTeams.set(
+                teamName,
+                []
+            );
+        }
+
+        groupedTeams
+            .get(teamName)
+            .push(employee);
+    }
+
+    let rowNumber = 6;
+
+    const teamStartRows = [];
+
+    for (
+        const [teamName, teamEmployees]
+        of groupedTeams
+    ) {
+        const teamStart = rowNumber;
+
+        for (
+            const employee
+            of teamEmployees
+        ) {
+            const row =
+                sheet.getRow(rowNumber);
+
+            // ----------------------------------------------------
+            // Column B = sub-team
+            // Only first employee gets the value.
+            // It will be merged below.
+            // ----------------------------------------------------
+
+            if (rowNumber === teamStart) {
+                row.getCell(2).value =
+                    teamName;
+            }
+
+            // ----------------------------------------------------
+            // Column C = employee
+            // ----------------------------------------------------
+
+            row.getCell(3).value =
+                employee.employeeName;
+
+            row.getCell(3).font = {
+                bold: true,
+            };
+
+            row.getCell(3).alignment = {
+                horizontal: "left",
+                vertical: "middle",
+            };
+
+            // ----------------------------------------------------
+            // Daily roster
+            // ----------------------------------------------------
+
+            for (let i = 0; i < dates.length; i++) {
+                const dateKey =
+                    getDateKey(dates[i]);
+
+                const key =
+                    `${employee.teamId}|${employee.employeeId}|${dateKey}`;
+
+                const entry =
+                    entryMap.get(key);
+
+                const cell =
+                    row.getCell(i + 4);
+
+                cell.value =
+                    getRosterValue(entry);
+
+                cell.alignment =
+                    centerAlignment;
+            }
+
+            rowNumber++;
+        }
+
+        const teamEnd =
+            rowNumber - 1;
+
+        // --------------------------------------------------------
+        // Merge sub-team cells
+        // --------------------------------------------------------
+
+        if (teamEnd > teamStart) {
+            sheet.mergeCells(
+                teamStart,
+                2,
+                teamEnd,
+                2
+            );
+        }
+
+        const teamCell =
+            sheet.getCell(teamStart, 2);
+
+        teamCell.alignment = {
+            horizontal: "center",
+            vertical: "middle",
+            wrapText: true,
+        };
+
+        teamCell.font = {
+            bold: true,
+        };
+
+        teamStartRows.push({
+            start: teamStart,
+            end: teamEnd,
         });
     }
-}
 
-const employees = Array.from(employeeMap.values()).sort((a, b) => {
-    const teamCompare = a.teamName.localeCompare(b.teamName);
+    // ============================================================
+    // MERGE ADMIN COLUMN
+    // ============================================================
 
-    if (teamCompare !== 0) {
-        return teamCompare;
+    if (rowNumber > 6) {
+        sheet.mergeCells(
+            6,
+            1,
+            rowNumber - 1,
+            1
+        );
+
+        const adminCell =
+            sheet.getCell("A6");
+
+        adminCell.value = "Admin";
+
+        adminCell.font = {
+            bold: true,
+        };
+
+        adminCell.alignment = {
+            horizontal: "center",
+            vertical: "middle",
+        };
     }
 
-    return a.employeeName.localeCompare(b.employeeName);
-});
+    // ============================================================
+    // BORDERS
+    // ============================================================
 
-for (const employee of employees) {
-    const row = {
-        team: employee.teamName,
-        employeeId: employee.employeeCode,
-        employee: employee.employeeName,
-    };
-
-    for (const d of dates) {
-        const key =
-            `${employee.teamId}|${employee.employeeId}|${getDateKey(d)}`;
-
-        const entry = entryMap.get(key);
-
-        row[getDateKey(d)] = entry
-            ? (
-                entry.isLeave
-                    ? "Leave"
-                    : entry.isHoliday && entry.isWeeklyOff
-                        ? "Holiday"
-                        : entry.isWeeklyOff
-                            ? "WOF"
-                            : entry.isHoliday
-                                ? "Holiday"
-                                : ({
-                                    Morning: "M",
-                                    General: "G",
-                                    Evening: "E",
-                                    Night: "N",
-                                    Off: "O",
-                                }[entry.shift?.name] ||
-                                entry.shift?.name ||
-                                "")
-            )
-            : "";
-    }
-
-    sheet.addRow(row);
-}
-
-    sheet.views = [{ state: "frozen", xSplit: 3, ySplit: 1 }];
-    const excelColumn = (number) => {
-        let result = "";
-        let n = number;
-        while (n > 0) {
-            const remainder = (n - 1) % 26;
-            result = String.fromCharCode(65 + remainder) + result;
-            n = Math.floor((n - 1) / 26);
+    for (
+        let r = 1;
+        r < rowNumber;
+        r++
+    ) {
+        for (
+            let c = 1;
+            c <= dates.length + 3;
+            c++
+        ) {
+            sheet.getCell(r, c).border =
+                thinBorder;
         }
-        return result;
-    };
+    }
+
+    // ============================================================
+    // HEADER FILL
+    // ============================================================
+
+    for (
+        let r = 1;
+        r <= 5;
+        r++
+    ) {
+        for (
+            let c = 1;
+            c <= dates.length + 3;
+            c++
+        ) {
+            sheet.getCell(r, c).fill =
+                headerFill;
+        }
+    }
+
+    // ============================================================
+    // FREEZE
+    // ============================================================
+
+    sheet.views = [
+        {
+            state: "frozen",
+            xSplit: 3,
+            ySplit: 2,
+        },
+    ];
+
+    // ============================================================
+    // FILTER
+    // ============================================================
+
     sheet.autoFilter = {
-        from: "A1",
-        to: `${excelColumn(columns.length)}1`,
+        from: "A6",
+        to: `A${rowNumber - 1}`,
     };
-    sheet.getRow(1).font = { bold: true };
-    sheet.getRow(1).alignment = { vertical: "middle" };
 
     return workbook;
 };
